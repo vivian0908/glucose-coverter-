@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>血糖單位換算（mg/dL ⇄ mmol/L）＋ HbA1c 估算</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2563eb">
+<link rel="icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root { --radius: 14px; }
+  body { font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,"Noto Sans CJK TC","PingFang TC","Helvetica Neue",Arial,sans-serif;
+         margin: 0; background: #f7fbff; color:#0a2540; }
+  header { padding: 18px 16px; text-align:center; font-weight:700; background: #e8f2ff; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 16px; }
+  .card { background: #fff; border-radius: var(--radius); box-shadow: 0 6px 24px rgba(10,37,64,.08);
+          padding: 16px; margin-bottom: 14px; }
+  .row { display:flex; gap:12px; align-items:center; }
+  .col { flex:1; }
+  label { display:block; font-size:14px; margin-bottom:8px; }
+  input[type="number"] { width: 100%; font-size: 20px; padding: 12px 14px; border-radius: 12px; border:1px solid #c5d9ee; outline: none; }
+  input[type="number"]:focus { border-color:#3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.15); }
+  .unit { font-size: 13px; color:#3b6ea5; margin-top:6px; }
+  .btns { display:flex; gap:10px; margin-top: 10px; }
+  button { flex:1; padding: 12px 14px; border:none; border-radius: 12px; font-weight:600; cursor:pointer; }
+  .primary { background:#2563eb; color:#fff; }
+  .ghost { background:#eef5ff; color:#0a2540; }
+  .hint { font-size:13px; color:#315d8a; margin: 8px 0 0; }
+  .fieldset { display:flex; gap:14px; flex-wrap:wrap; font-size:13px; color:#315d8a; margin: 6px 0 0; }
+  .pill { background:#eef5ff; padding:6px 10px; border-radius:999px; }
+  .result { font-weight:700; font-size:18px; margin-top:8px; }
+  footer { text-align:center; color:#5b7da6; font-size:12px; padding: 16px; }
+</style>
+</head>
+<body>
+<header>血糖單位換算（mg/dL ⇄ mmol/L）＋ HbA1c 估算</header>
+<div class="wrap">
+
+  <!-- Converter -->
+  <div class="card">
+    <div class="row">
+      <div class="col">
+        <label for="mg">輸入 mg/dL：</label>
+        <input id="mg" type="number" inputmode="decimal" placeholder="例如 126" step="0.1">
+        <div class="unit">自動換算為 mmol/L（÷18）</div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div class="col">
+        <label for="mmol">輸入 mmol/L：</label>
+        <input id="mmol" type="number" inputmode="decimal" placeholder="例如 7.0" step="0.1">
+        <div class="unit">自動換算為 mg/dL（×18）</div>
+      </div>
+    </div>
+    <div class="btns">
+      <button class="primary" id="copyBtn">複製結果</button>
+      <button class="ghost" id="clearBtn">清除</button>
+    </div>
+    <p class="hint">公式：mmol/L = mg/dL ÷ 18；mg/dL = mmol/L × 18</p>
+  </div>
+
+  <!-- Quick ref -->
+  <div class="card">
+    <label>常見對照：</label>
+    <div class="row">
+      <div class="col">
+        <div class="unit">90 mg/dL ≈ 5.0 mmol/L</div>
+        <div class="unit">100 mg/dL ≈ 5.6 mmol/L</div>
+        <div class="unit">110 mg/dL ≈ 6.1 mmol/L</div>
+        <div class="unit">126 mg/dL ≈ 7.0 mmol/L</div>
+        <div class="unit">140 mg/dL ≈ 7.8 mmol/L</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HbA1c estimator -->
+  <div class="card">
+    <label for="avgInput">估算 HbA1c（依 ADAG 公式）</label>
+    <div class="row">
+      <div class="col">
+        <input id="avgInput" type="number" inputmode="decimal" placeholder="輸入平均血糖值，例如 120 或 6.7" step="0.1">
+        <div class="fieldset">
+          <label><input type="radio" name="unit" value="mg" checked> mg/dL</label>
+          <label><input type="radio" name="unit" value="mmol"> mmol/L</label>
+          <span class="pill">ADAG：HbA1c(%) ≈ (平均 mg/dL + 46.7) / 28.7</span>
+          <span class="pill">或 HbA1c(%) ≈ 平均 mmol/L × 1.59 + 2.59</span>
+        </div>
+        <div id="a1cOut" class="result">HbA1c：—</div>
+        <div id="avgEcho" class="unit">平均血糖回推：—</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<footer>提示：加入主畫面後，可離線使用；本工具僅供參考，實際判讀以醫療專業為準。</footer>
+<script>
+// elements
+const mg = document.getElementById('mg');
+const mmol = document.getElementById('mmol');
+const copyBtn = document.getElementById('copyBtn');
+const clearBtn = document.getElementById('clearBtn');
+const avgInput = document.getElementById('avgInput');
+const unitRadios = document.getElementsByName('unit');
+const a1cOut = document.getElementById('a1cOut');
+const avgEcho = document.getElementById('avgEcho');
+
+let updating = false;
+
+function round(val, digits=2) {
+  if (val === '' || isNaN(val)) return '';
+  const f = Math.pow(10, digits);
+  return Math.round(val * f) / f;
+}
+
+// bidirectional converter
+mg.addEventListener('input', () => {
+  if (updating) return;
+  updating = true;
+  const v = parseFloat(mg.value);
+  mmol.value = isNaN(v) ? '' : round(v/18, 2);
+  updating = false;
+});
+
+mmol.addEventListener('input', () => {
+  if (updating) return;
+  updating = true;
+  const v = parseFloat(mmol.value);
+  mg.value = isNaN(v) ? '' : round(v*18, 0);
+  updating = false;
+});
+
+copyBtn.addEventListener('click', async () => {
+  const txt = `mg/dL: ${mg.value || '-'}\nmmol/L: ${mmol.value || '-'}`;
+  try {
+    await navigator.clipboard.writeText(txt);
+    copyBtn.textContent = "已複製";
+    setTimeout(()=> copyBtn.textContent="複製結果", 1200);
+  } catch(e) {
+    alert("無法複製，請手動長按選取。");
+  }
+});
+
+clearBtn.addEventListener('click', () => {
+  mg.value = '';
+  mmol.value = '';
+});
+
+// HbA1c estimator
+function getSelectedUnit() {
+  for (const r of unitRadios) if (r.checked) return r.value;
+  return 'mg';
+}
+
+function calcA1c() {
+  const unit = getSelectedUnit();
+  const v = parseFloat(avgInput.value);
+  if (isNaN(v)) {
+    a1cOut.textContent = "HbA1c：—";
+    avgEcho.textContent = "平均血糖回推：—";
+    return;
+  }
+  let a1c, avgmg, avgmmol;
+  if (unit === 'mg') {
+    avgmg = v;
+    avgmmol = v/18;
+    a1c = (v + 46.7) / 28.7; // ADAG
+  } else {
+    avgmmol = v;
+    avgmg = v*18;
+    a1c = v*1.59 + 2.59; // approx linear from ADAG
+  }
+  a1cOut.textContent = "HbA1c：" + round(a1c, 2) + " %";
+  avgEcho.textContent = "平均血糖（mg/dL：" + round(avgmg,0) + "；mmol/L：" + round(avgmmol,2) + "）";
+}
+
+avgInput.addEventListener('input', calcA1c);
+for (const r of unitRadios) r.addEventListener('change', calcA1c);
+
+// PWA SW
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
