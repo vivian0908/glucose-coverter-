@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>血糖單位換算（mg/dL ⇄ mmol/L）＋ HbA1c 估算</title>
+<title>血糖換算＋HbA1c 估算＋即時範圍提示（修正公式）</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#2563eb">
 <link rel="icon" href="icon-192.png">
@@ -29,14 +29,16 @@
   .primary { background:#2563eb; color:#fff; }
   .ghost { background:#eef5ff; color:#0a2540; }
   .hint { font-size:13px; color:#315d8a; margin: 8px 0 0; }
+  .badge { display:inline-block; padding:6px 10px; border-radius:999px; font-weight:700; font-size:13px; }
+  .ok { background:#e6f7ec; color:#0f6b34; }
+  .warn { background:#fff7e6; color:#8a5a00; }
+  .danger { background:#fde7e7; color:#a31212; }
   .fieldset { display:flex; gap:14px; flex-wrap:wrap; font-size:13px; color:#315d8a; margin: 6px 0 0; }
-  .pill { background:#eef5ff; padding:6px 10px; border-radius:999px; }
-  .result { font-weight:700; font-size:18px; margin-top:8px; }
   footer { text-align:center; color:#5b7da6; font-size:12px; padding: 16px; }
 </style>
 </head>
 <body>
-<header>血糖單位換算（mg/dL ⇄ mmol/L）＋ HbA1c 估算</header>
+<header>血糖換算＋HbA1c 估算＋即時範圍提示</header>
 <div class="wrap">
 
   <!-- Converter -->
@@ -85,17 +87,28 @@
         <div class="fieldset">
           <label><input type="radio" name="unit" value="mg" checked> mg/dL</label>
           <label><input type="radio" name="unit" value="mmol"> mmol/L</label>
-          <span class="pill">ADAG：HbA1c(%) ≈ (平均 mg/dL + 46.7) / 28.7</span>
-          <span class="pill">或 HbA1c(%) ≈ 平均 mmol/L × 1.59 + 2.59</span>
+          <span class="unit">ADAG：HbA1c(%) ≈ (平均 mg/dL + 46.7) / 28.7；或 ≈ (平均 mmol/L + 2.59) / 1.59</span>
         </div>
-        <div id="a1cOut" class="result">HbA1c：—</div>
+        <div id="a1cOut" class="unit"><span class="badge ok">HbA1c：—</span></div>
         <div id="avgEcho" class="unit">平均血糖回推：—</div>
       </div>
     </div>
   </div>
 
+  <!-- Range tips -->
+  <div class="card">
+    <label>即時血糖範圍提示</label>
+    <div class="fieldset">
+      <label><input type="radio" name="ctx" value="fasting" checked> 空腹（FPG）</label>
+      <label><input type="radio" name="ctx" value="post"> 飯後 1–2 小時（PPG）</label>
+    </div>
+    <div class="unit" id="tipRange">空腹建議：80–130 mg/dL（4.4–7.2 mmol/L）</div>
+    <div class="result" id="tipStatus" style="margin-top:8px;"><span class="badge warn">—</span></div>
+    <div class="unit">說明：此為成人非孕者的一般目標，實際目標請依醫療專業個別化調整。</div>
+  </div>
+
 </div>
-<footer>提示：加入主畫面後，可離線使用；本工具僅供參考，實際判讀以醫療專業為準。</footer>
+<footer>提示：加入主畫面後，可離線使用；結果僅供參考，不取代醫療判讀。</footer>
 <script>
 // elements
 const mg = document.getElementById('mg');
@@ -106,6 +119,9 @@ const avgInput = document.getElementById('avgInput');
 const unitRadios = document.getElementsByName('unit');
 const a1cOut = document.getElementById('a1cOut');
 const avgEcho = document.getElementById('avgEcho');
+const tipRange = document.getElementById('tipRange');
+const tipStatus = document.getElementById('tipStatus');
+const ctxRadios = document.getElementsByName('ctx');
 
 let updating = false;
 
@@ -122,6 +138,7 @@ mg.addEventListener('input', () => {
   const v = parseFloat(mg.value);
   mmol.value = isNaN(v) ? '' : round(v/18, 2);
   updating = false;
+  updateTips();
 });
 
 mmol.addEventListener('input', () => {
@@ -130,6 +147,7 @@ mmol.addEventListener('input', () => {
   const v = parseFloat(mmol.value);
   mg.value = isNaN(v) ? '' : round(v*18, 0);
   updating = false;
+  updateTips();
 });
 
 copyBtn.addEventListener('click', async () => {
@@ -146,6 +164,7 @@ copyBtn.addEventListener('click', async () => {
 clearBtn.addEventListener('click', () => {
   mg.value = '';
   mmol.value = '';
+  updateTips();
 });
 
 // HbA1c estimator
@@ -158,7 +177,7 @@ function calcA1c() {
   const unit = getSelectedUnit();
   const v = parseFloat(avgInput.value);
   if (isNaN(v)) {
-    a1cOut.textContent = "HbA1c：—";
+    a1cOut.innerHTML = '<span class="badge ok">HbA1c：—</span>';
     avgEcho.textContent = "平均血糖回推：—";
     return;
   }
@@ -170,14 +189,59 @@ function calcA1c() {
   } else {
     avgmmol = v;
     avgmg = v*18;
-    a1c = v*1.59 + 2.59; // approx linear from ADAG
+    a1c = (v + 2.59) / 1.59; // Correct ADAG rearrangement
   }
-  a1cOut.textContent = "HbA1c：" + round(a1c, 2) + " %";
+  a1cOut.innerHTML = '<span class="badge ok">HbA1c：' + round(a1c, 2) + ' %</span>';
   avgEcho.textContent = "平均血糖（mg/dL：" + round(avgmg,0) + "；mmol/L：" + round(avgmmol,2) + "）";
 }
 
 avgInput.addEventListener('input', calcA1c);
 for (const r of unitRadios) r.addEventListener('change', calcA1c);
+
+// Range tips
+function getCtx() {
+  for (const r of ctxRadios) if (r.checked) return r.value;
+  return 'fasting';
+}
+
+function updateTips() {
+  const ctx = getCtx();
+  const v = parseFloat(mg.value);
+  if (ctx === 'fasting') {
+    tipRange.textContent = "空腹建議：80–130 mg/dL（4.4–7.2 mmol/L）";
+    if (isNaN(v)) {
+      tipStatus.innerHTML = '<span class="badge warn">—</span>';
+      return;
+    }
+    if (v < 70) {
+      tipStatus.innerHTML = '<span class="badge danger">⬇️ 低血糖（<70）</span>';
+    } else if (v >= 80 && v <= 130) {
+      tipStatus.innerHTML = '<span class="badge ok">✅ 在空腹建議範圍內</span>';
+    } else if (v < 80) {
+      tipStatus.innerHTML = '<span class="badge warn">偏低（80 以下）</span>';
+    } else {
+      tipStatus.innerHTML = '<span class="badge warn">偏高（>130）</span>';
+    }
+  } else {
+    tipRange.textContent = "飯後 1–2 小時建議：< 180 mg/dL（< 10.0 mmol/L）";
+    if (isNaN(v)) {
+      tipStatus.innerHTML = '<span class="badge warn">—</span>';
+      return;
+    }
+    if (v < 70) {
+      tipStatus.innerHTML = '<span class="badge danger">⬇️ 低血糖（<70）</span>';
+    } else if (v < 180) {
+      tipStatus.innerHTML = '<span class="badge ok">✅ 在飯後建議範圍內</span>';
+    } else {
+      tipStatus.innerHTML = '<span class="badge warn">偏高（≥180）</span>';
+    }
+  }
+}
+
+for (const r of ctxRadios) r.addEventListener('change', updateTips);
+
+// Init
+updateTips();
 
 // PWA SW
 if ('serviceWorker' in navigator) {
