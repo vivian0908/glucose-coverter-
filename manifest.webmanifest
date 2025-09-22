@@ -1,0 +1,21 @@
+{
+  "name": "血糖單位換算",
+  "short_name": "血糖換算",
+  "description": "mg/dL ⇄ mmol/L 快速換算（可加到主畫面）",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f7fbff",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
