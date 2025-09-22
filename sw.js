@@ -1,5 +1,9 @@
-// Updated Service Worker (cache-bust)
-const CACHE_NAME = 'bgc-v3'; // bump this version when deploying new files
+// Service Worker for Blood Glucose PWA (v5)
+// - Bumps cache to v5 to force-refresh users
+// - Cleans up older caches on activate
+// - Pre-caches core shell assets for offline use
+
+const CACHE_NAME = 'bgc-v5';
 const ASSETS = [
   './',
   './index.html',
@@ -10,22 +14,22 @@ const ASSETS = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(ASSETS))
+      .then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then(keys => Promise.all(keys.map(k => {
-      if (k !== CACHE_NAME) return caches.delete(k);
-    }))).then(() => self.clients.claim())
+    caches.keys().then(keys => Promise.all(
+      keys.map(k => (k !== CACHE_NAME ? caches.delete(k) : Promise.resolve()))
+    )).then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', (event) => {
   event.respondWith(
-    caches.match(event.request).then(response => {
-      return response || fetch(event.request);
-    })
+    caches.match(event.request).then(resp => resp || fetch(event.request))
   );
 });
