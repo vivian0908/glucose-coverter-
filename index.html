@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>血糖換算 · HbA1c 估算</title>
+<title>血糖換算 · HbA1c 估算 · 安心值</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#2563eb">
 <link rel="icon" href="icon-192.png">
@@ -21,8 +21,8 @@
   .row { display:flex; gap:12px; align-items:center; }
   .col { flex:1; }
   label { display:block; font-size:14px; margin-bottom:8px; }
-  input[type="number"] { width: 100%; font-size: 20px; padding: 12px 14px; border-radius: 12px; border:1px solid #c5d9ee; outline: none; }
-  input[type="number"]:focus { border-color:#3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.15); }
+  input[type="number"], input[type="text"] { width: 100%; font-size: 20px; padding: 12px 14px; border-radius: 12px; border:1px solid #c5d9ee; outline: none; }
+  input[type="number"]:focus, input[type="text"]:focus { border-color:#3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.15); }
   .unit { font-size: 13px; color:#3b6ea5; margin-top:6px; }
   .btns { display:flex; gap:10px; margin-top: 10px; }
   button { flex:1; padding: 12px 14px; border:none; border-radius: 12px; font-weight:600; cursor:pointer; }
@@ -35,10 +35,13 @@
   .danger { background:#fde7e7; color:#a31212; }
   .fieldset { display:flex; gap:14px; flex-wrap:wrap; font-size:13px; color:#315d8a; margin: 6px 0 0; }
   footer { text-align:center; color:#5b7da6; font-size:12px; padding: 16px; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  .pill { padding: 6px 10px; border-radius: 999px; font-weight: 700; font-size: 13px; display:inline-block; }
+  .pill.blue{ background:#e8f2ff; color:#1e40af; }
 </style>
 </head>
 <body>
-<header>血糖換算 · HbA1c 估算</header>
+<header>血糖換算 · HbA1c 估算 · 安心值</header>
 <div class="wrap">
 
   <!-- Converter -->
@@ -107,10 +110,54 @@
     <div class="unit">說明：此為成人非孕者的一般目標，實際目標請依醫療專業個別化調整。</div>
   </div>
 
+  <!-- New: 三方整合 · 安心值 -->
+  <div class="card">
+    <div class="row"><div class="col">
+      <label>三方整合 · 安心值</label>
+      <div class="unit">輸入你同一時間點的讀數，系統會自動計算「安心值」（取中間判讀）。</div>
+    </div></div>
+
+    <div class="row" style="margin-top:10px">
+      <div class="col">
+        <label for="bgmSeries">BGM 指尖血（可填 1~3 個，用逗號分隔）</label>
+        <input id="bgmSeries" type="text" inputmode="numeric" placeholder="例如：101, 116" class="mono">
+        <div class="unit">系統會自動取平均</div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:10px">
+      <div class="col">
+        <label for="sannuoMmol">三諾（mmol/L）</label>
+        <input id="sannuoMmol" type="number" inputmode="decimal" placeholder="例如 5.0" step="0.1">
+        <div class="unit">會自動換算為 mg/dL</div>
+      </div>
+      <div class="col">
+        <label for="abbottMg">亞培（mg/dL）</label>
+        <input id="abbottMg" type="number" inputmode="decimal" placeholder="例如 113" step="0.1">
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:12px">
+      <div class="col">
+        <div id="安心結果" class="unit">
+          <span class="pill blue">BGM 平均：—</span>
+          <span class="pill blue" id="sannuoEcho">三諾換算：—</span>
+          <span class="pill blue" id="abbottEcho">亞培：—</span>
+        </div>
+        <div id="安心值Out" class="hint" style="margin-top:8px"><span class="badge ok">安心值：—</span></div>
+      </div>
+    </div>
+    <div class="btns">
+      <button class="primary" id="copy安心">複製安心值</button>
+      <button class="ghost" id="clear安心">清除</button>
+    </div>
+    <div class="unit">規則：有 BGM → (BGM 平均 + 三諾mg/dL + 亞培) ÷ 3；無 BGM → (三諾mg/dL + 亞培) ÷ 2</div>
+  </div>
+
 </div>
 <footer>提示：加入主畫面後，可離線使用；結果僅供參考，不取代醫療判讀。</footer>
 <script>
-// elements
+// ====== elements ======
 const mg = document.getElementById('mg');
 const mmol = document.getElementById('mmol');
 const copyBtn = document.getElementById('copyBtn');
@@ -123,6 +170,17 @@ const tipRange = document.getElementById('tipRange');
 const tipStatus = document.getElementById('tipStatus');
 const ctxRadios = document.getElementsByName('ctx');
 
+// 安心值區域
+const bgmSeries = document.getElementById('bgmSeries');
+const sannuoMmol = document.getElementById('sannuoMmol');
+const abbottMg = document.getElementById('abbottMg');
+const 安心值Out = document.getElementById('安心值Out');
+const 安心結果 = document.getElementById('安心結果');
+const sannuoEcho = document.getElementById('sannuoEcho');
+const abbottEcho = document.getElementById('abbottEcho');
+const copy安心 = document.getElementById('copy安心');
+const clear安心 = document.getElementById('clear安心');
+
 let updating = false;
 
 function round(val, digits=2) {
@@ -131,7 +189,7 @@ function round(val, digits=2) {
   return Math.round(val * f) / f;
 }
 
-// bidirectional converter
+// ====== mg/dL ↔ mmol/L converter ======
 mg.addEventListener('input', () => {
   if (updating) return;
   updating = true;
@@ -167,7 +225,7 @@ clearBtn.addEventListener('click', () => {
   updateTips();
 });
 
-// HbA1c estimator
+// ====== HbA1c estimator ======
 function getSelectedUnit() {
   for (const r of unitRadios) if (r.checked) return r.value;
   return 'mg';
@@ -189,7 +247,7 @@ function calcA1c() {
   } else {
     avgmmol = v;
     avgmg = v*18;
-    a1c = (v + 2.59) / 1.59; // Correct ADAG rearrangement
+    a1c = (v + 2.59) / 1.59; // ADAG for mmol/L
   }
   a1cOut.innerHTML = '<span class="badge ok">HbA1c：' + round(a1c, 2) + ' %</span>';
   avgEcho.textContent = "平均血糖（mg/dL：" + round(avgmg,0) + "；mmol/L：" + round(avgmmol,2) + "）";
@@ -198,7 +256,7 @@ function calcA1c() {
 avgInput.addEventListener('input', calcA1c);
 for (const r of unitRadios) r.addEventListener('change', calcA1c);
 
-// Range tips
+// ====== Range tips ======
 function getCtx() {
   for (const r of ctxRadios) if (r.checked) return r.value;
   return 'fasting';
@@ -209,39 +267,87 @@ function updateTips() {
   const v = parseFloat(mg.value);
   if (ctx === 'fasting') {
     tipRange.textContent = "空腹建議：80–130 mg/dL（4.4–7.2 mmol/L）";
-    if (isNaN(v)) {
-      tipStatus.innerHTML = '<span class="badge warn">—</span>';
-      return;
-    }
-    if (v < 70) {
-      tipStatus.innerHTML = '<span class="badge danger">⬇️ 低血糖（<70）</span>';
-    } else if (v >= 80 && v <= 130) {
-      tipStatus.innerHTML = '<span class="badge ok">✅ 在空腹建議範圍內</span>';
-    } else if (v < 80) {
-      tipStatus.innerHTML = '<span class="badge warn">偏低（80 以下）</span>';
-    } else {
-      tipStatus.innerHTML = '<span class="badge warn">偏高（>130）</span>';
-    }
+    if (isNaN(v)) { tipStatus.innerHTML = '<span class="badge warn">—</span>'; return; }
+    if (v < 70) tipStatus.innerHTML = '<span class="badge danger">⬇️ 低血糖（<70）</span>';
+    else if (v >= 80 && v <= 130) tipStatus.innerHTML = '<span class="badge ok">✅ 在空腹建議範圍內</span>';
+    else if (v < 80) tipStatus.innerHTML = '<span class="badge warn">偏低（80 以下）</span>';
+    else tipStatus.innerHTML = '<span class="badge warn">偏高（>130）</span>';
   } else {
     tipRange.textContent = "飯後 1–2 小時建議：< 180 mg/dL（< 10.0 mmol/L）";
-    if (isNaN(v)) {
-      tipStatus.innerHTML = '<span class="badge warn">—</span>';
-      return;
-    }
-    if (v < 70) {
-      tipStatus.innerHTML = '<span class="badge danger">⬇️ 低血糖（<70）</span>';
-    } else if (v < 180) {
-      tipStatus.innerHTML = '<span class="badge ok">✅ 在飯後建議範圍內</span>';
-    } else {
-      tipStatus.innerHTML = '<span class="badge warn">偏高（≥180）</span>';
-    }
+    if (isNaN(v)) { tipStatus.innerHTML = '<span class="badge warn">—</span>'; return; }
+    if (v < 70) tipStatus.innerHTML = '<span class="badge danger">⬇️ 低血糖（<70）</span>';
+    else if (v < 180) tipStatus.innerHTML = '<span class="badge ok">✅ 在飯後建議範圍內</span>';
+    else tipStatus.innerHTML = '<span class="badge warn">偏高（≥180）</span>';
   }
 }
 
 for (const r of ctxRadios) r.addEventListener('change', updateTips);
-
-// Init
 updateTips();
+
+// ====== 三方整合 · 安心值 ======
+function toMgdlFromMmol(mmol) { return mmol * 18; }
+function parseBgmSeries(txt) {
+  if (!txt) return [];
+  return txt.split(/[，,\s]+/).map(s => parseFloat(s)).filter(n => !isNaN(n));
+}
+
+function calc安心值() {
+  const bgms = parseBgmSeries(bgmSeries.value);
+  const bgmAvg = bgms.length ? Math.round(bgms.reduce((a,b)=>a+b,0) / bgms.length) : null;
+  const sMmol = parseFloat(sannuoMmol.value);
+  const aMg = parseFloat(abbottMg.value);
+  const sMg = isNaN(sMmol) ? null : Math.round(toMgdlFromMmol(sMmol));
+
+  // Echo chips
+  安心結果.innerHTML = '';
+  const chips = [];
+  chips.push(`<span class="pill blue">BGM 平均：${bgmAvg ?? '—'}</span>`);
+  chips.push(`<span class="pill blue">三諾換算：${sMg ?? '—'} mg/dL</span>`);
+  chips.push(`<span class="pill blue">亞培：${isNaN(aMg)?'—':aMg} mg/dL</span>`);
+  安心結果.innerHTML = chips.join(' ');
+
+  let comfort = null;
+  if (bgmAvg !== null && sMg !== null && !isNaN(aMg)) {
+    comfort = (bgmAvg + sMg + aMg) / 3;
+  } else if (sMg !== null && !isNaN(aMg)) {
+    comfort = (sMg + aMg) / 2;
+  }
+
+  if (comfort === null) {
+    安心值Out.innerHTML = '<span class="badge ok">安心值：—</span>';
+    return;
+  }
+
+  const c = Math.round(comfort * 10) / 10; // 1 位小數
+  // 狀態上色
+  let klass = 'ok', label = '✅ 理想';
+  if (c >= 116 && c <= 125) { klass = 'warn'; label = '⚠ 可接受'; }
+  else if (c >= 126) { klass = 'warn'; label = '觀察'; }
+
+  安心值Out.innerHTML = `<span class="badge ${klass}">安心值：${c} mg/dL · ${label}</span>`;
+}
+
+bgmSeries.addEventListener('input', calc安心值);
+sannuoMmol.addEventListener('input', calc安心值);
+abbottMg.addEventListener('input', calc安心值);
+
+copy安心.addEventListener('click', async ()=>{
+  const txt = 安心值Out.textContent.replace(/\s+/g,' ').trim();
+  try {
+    await navigator.clipboard.writeText(txt);
+    copy安心.textContent = '已複製';
+    setTimeout(()=> copy安心.textContent = '複製安心值', 1200);
+  } catch(e) { alert('無法複製，請手動選取'); }
+});
+
+clear安心.addEventListener('click', ()=>{
+  bgmSeries.value = '';
+  sannuoMmol.value = '';
+  abbottMg.value = '';
+  calc安心值();
+});
+
+calc安心值();
 
 // PWA SW
 if ('serviceWorker' in navigator) {
@@ -252,3 +358,4 @@ if ('serviceWorker' in navigator) {
 </script>
 </body>
 </html>
+
