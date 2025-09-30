@@ -154,8 +154,20 @@
     <div class="unit">規則：有 BGM → (BGM 平均 + 三諾mg/dL + 亞培) ÷ 3；無 BGM → (三諾mg/dL + 亞培) ÷ 2</div>
   </div>
 
+  <!-- Chart module -->
+  <div class="card">
+    <label>安心值 vs 單機數字</label>
+    <canvas id="glucoseChart" height="200"></canvas>
+    <div class="unit">灰色：BGM 平均｜綠色：三諾｜藍色：亞培｜粉紅色：安心值</div>
+    <div class="btns" style="margin-top:10px">
+      <button class="primary" id="exportPNG">匯出圖表 PNG</button>
+      <button class="ghost" id="exportCSV">匯出數據 CSV</button>
+    </div>
+  </div>
+
 </div>
 <footer>提示：加入主畫面後，可離線使用；結果僅供參考，不取代醫療判讀。</footer>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 // ====== elements ======
 const mg = document.getElementById('mg');
@@ -176,8 +188,6 @@ const sannuoMmol = document.getElementById('sannuoMmol');
 const abbottMg = document.getElementById('abbottMg');
 const 安心值Out = document.getElementById('安心值Out');
 const 安心結果 = document.getElementById('安心結果');
-const sannuoEcho = document.getElementById('sannuoEcho');
-const abbottEcho = document.getElementById('abbottEcho');
 const copy安心 = document.getElementById('copy安心');
 const clear安心 = document.getElementById('clear安心');
 
@@ -269,93 +279,4 @@ function updateTips() {
     tipRange.textContent = "空腹建議：80–130 mg/dL（4.4–7.2 mmol/L）";
     if (isNaN(v)) { tipStatus.innerHTML = '<span class="badge warn">—</span>'; return; }
     if (v < 70) tipStatus.innerHTML = '<span class="badge danger">⬇️ 低血糖（<70）</span>';
-    else if (v >= 80 && v <= 130) tipStatus.innerHTML = '<span class="badge ok">✅ 在空腹建議範圍內</span>';
-    else if (v < 80) tipStatus.innerHTML = '<span class="badge warn">偏低（80 以下）</span>';
-    else tipStatus.innerHTML = '<span class="badge warn">偏高（>130）</span>';
-  } else {
-    tipRange.textContent = "飯後 1–2 小時建議：< 180 mg/dL（< 10.0 mmol/L）";
-    if (isNaN(v)) { tipStatus.innerHTML = '<span class="badge warn">—</span>'; return; }
-    if (v < 70) tipStatus.innerHTML = '<span class="badge danger">⬇️ 低血糖（<70）</span>';
-    else if (v < 180) tipStatus.innerHTML = '<span class="badge ok">✅ 在飯後建議範圍內</span>';
-    else tipStatus.innerHTML = '<span class="badge warn">偏高（≥180）</span>';
-  }
-}
-
-for (const r of ctxRadios) r.addEventListener('change', updateTips);
-updateTips();
-
-// ====== 三方整合 · 安心值 ======
-function toMgdlFromMmol(mmol) { return mmol * 18; }
-function parseBgmSeries(txt) {
-  if (!txt) return [];
-  return txt.split(/[，,\s]+/).map(s => parseFloat(s)).filter(n => !isNaN(n));
-}
-
-function calc安心值() {
-  const bgms = parseBgmSeries(bgmSeries.value);
-  const bgmAvg = bgms.length ? Math.round(bgms.reduce((a,b)=>a+b,0) / bgms.length) : null;
-  const sMmol = parseFloat(sannuoMmol.value);
-  const aMg = parseFloat(abbottMg.value);
-  const sMg = isNaN(sMmol) ? null : Math.round(toMgdlFromMmol(sMmol));
-
-  // Echo chips
-  安心結果.innerHTML = '';
-  const chips = [];
-  chips.push(`<span class="pill blue">BGM 平均：${bgmAvg ?? '—'}</span>`);
-  chips.push(`<span class="pill blue">三諾換算：${sMg ?? '—'} mg/dL</span>`);
-  chips.push(`<span class="pill blue">亞培：${isNaN(aMg)?'—':aMg} mg/dL</span>`);
-  安心結果.innerHTML = chips.join(' ');
-
-  let comfort = null;
-  if (bgmAvg !== null && sMg !== null && !isNaN(aMg)) {
-    comfort = (bgmAvg + sMg + aMg) / 3;
-  } else if (sMg !== null && !isNaN(aMg)) {
-    comfort = (sMg + aMg) / 2;
-  }
-
-  if (comfort === null) {
-    安心值Out.innerHTML = '<span class="badge ok">安心值：—</span>';
-    return;
-  }
-
-  const c = Math.round(comfort * 10) / 10; // 1 位小數
-  // 狀態上色
-  let klass = 'ok', label = '✅ 理想';
-  if (c >= 116 && c <= 125) { klass = 'warn'; label = '⚠ 可接受'; }
-  else if (c >= 126) { klass = 'warn'; label = '觀察'; }
-
-  安心值Out.innerHTML = `<span class="badge ${klass}">安心值：${c} mg/dL · ${label}</span>`;
-}
-
-bgmSeries.addEventListener('input', calc安心值);
-sannuoMmol.addEventListener('input', calc安心值);
-abbottMg.addEventListener('input', calc安心值);
-
-copy安心.addEventListener('click', async ()=>{
-  const txt = 安心值Out.textContent.replace(/\s+/g,' ').trim();
-  try {
-    await navigator.clipboard.writeText(txt);
-    copy安心.textContent = '已複製';
-    setTimeout(()=> copy安心.textContent = '複製安心值', 1200);
-  } catch(e) { alert('無法複製，請手動選取'); }
-});
-
-clear安心.addEventListener('click', ()=>{
-  bgmSeries.value = '';
-  sannuoMmol.value = '';
-  abbottMg.value = '';
-  calc安心值();
-});
-
-calc安心值();
-
-// PWA SW
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
-  });
-}
-</script>
-</body>
-</html>
-
+    else if (
