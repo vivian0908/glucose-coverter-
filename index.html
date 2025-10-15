@@ -127,8 +127,8 @@
 
     <div class="row" style="margin-top:10px">
       <div class="col">
-        <label for="sannuoMmol">（mmol/L）</label>
-        <input id="sannuoMmol" type="number" inputmode="decimal" placeholder="例如 5.0" step="0.1">
+        <label for="THREEMmol">（mmol/L）</label>
+        <input id="THREEMmol" type="number" inputmode="decimal" placeholder="例如 5.0" step="0.1">
         <div class="unit">會自動換算為 mg/dL</div>
       </div>
       <div class="col">
@@ -151,14 +151,14 @@
       <button class="primary" id="copy安心">複製安心值</button>
       <button class="ghost" id="clear安心">清除</button>
     </div>
-    <div class="unit">規則：有 BGM → (BGM 平均 + A mg/dL + 亞培) ÷ 3；無 BGM → (mg/dL + 亞培) ÷ 2</div>
+    <div class="unit">規則：有 BGM → (BGM 平均 + THREE mg/dL + 亞培) ÷ 3；無 BGM → (mg/dL + 亞培) ÷ 2</div>
   </div>
 
   <!-- Chart module -->
   <div class="card">
     <label>安心值 vs 單機數字</label>
     <canvas id="glucoseChart" height="200"></canvas>
-    <div class="unit">灰色：BGM 平均｜綠色：A｜藍色：亞培｜粉紅色：安心值</div>
+    <div class="unit">灰色：BGM 平均｜綠色：THREE｜藍色：亞培｜粉紅色：安心值</div>
     <div class="btns" style="margin-top:10px">
       <button class="primary" id="exportPNG">匯出圖表 PNG</button>
       <button class="ghost" id="exportCSV">匯出數據 CSV</button>
